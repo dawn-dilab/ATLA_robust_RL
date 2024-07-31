@@ -2,8 +2,8 @@ import random, sys, time, multiprocessing
 from auto_LiRPA import BoundedModule, BoundedTensor, BoundedParameter
 from auto_LiRPA.perturbations import *
 
-from policy_gradients.models import activation_with_name
-
+from .models import activation_with_name
+from torch import nn
 
 forward_one = True
 

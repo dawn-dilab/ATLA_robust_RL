@@ -1,7 +1,6 @@
 import torch.nn as nn
 import math
 import functools
-import torch as ch
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 from .torch_utils import *
@@ -318,7 +317,8 @@ class DiscPolicy(nn.Module):
     A discrete policy using a fully connected neural network.
     The parameterizing tensor is a categorical distribution over actions
     '''
-    def __init__(self, state_dim, action_dim, init, hidden_sizes=HIDDEN_SIZES, time_in_state=False, share_weights=False):
+    def __init__(self, state_dim, action_dim, init, hidden_sizes=HIDDEN_SIZES, time_in_state=False,
+                 share_weights=False, activation=None):
         '''
         Initializes the network with the state dimensionality and # actions
         Inputs:
@@ -399,8 +399,9 @@ class DiscPolicy(nn.Module):
         - actions, the actions taken
         '''
         try:
-            dist = ch.distributions.categorical.Categorical(p)
-            return dist.log_prob(actions)
+            actions_ = actions.squeeze(-1)
+            dist = ch.distributions.categorical.Categorical(p)  # dist tensor(1,4) actions tensor(1,) eg: Tensor(3)
+            return dist.log_prob(actions_)
         except Exception as e:
             raise ValueError("Numerical error")
     
@@ -431,6 +432,15 @@ class DiscPolicy(nn.Module):
             return self.final_value(ch.cat((x, t), -1))
         else:
             return self.final_value(x)
+
+    def reset(self):
+        return
+
+    def pause_history(self):
+        return
+
+    def continue_history(self):
+        return
 
 
 class CtsPolicy(nn.Module):

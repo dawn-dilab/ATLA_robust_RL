@@ -5,12 +5,6 @@ from gym.spaces.box import Box as Continuous
 import gym
 import random
 from .torch_utils import ZFilter, Identity, StateWithTime, RewardFilter
-from gym.spaces import MultiDiscrete
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(os.path.dirname(current_dir))
-import sys
-sys.path.append(parent_dir)
-from src.powergym.powergym.env_register import make_env
 
 class Env:
     '''
@@ -26,22 +20,13 @@ class Env:
     '''
     def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None, 
             show_env=False, save_frames=False, save_frames_path=""):
-        if 'powergym_env' in params:
-            self.worker_idx = params['worker_idx']
-            self.env_seed = params['seed']
-            # 创建环境
-            self.env = make_env(game, worker_idx=self.worker_idx)
-            # self.env.seed(self.env_seed + 0 if self.worker_idx is None else self.worker_idx)
-            self.env.seed(random.getrandbits(31))
-        else:
-            self.env = gym.make(game)
-        self.game = game
+        self.env = gym.make(game)
         clip_obs = None if clip_obs < 0 else clip_obs
         clip_rew = None if clip_rew < 0 else clip_rew
 
         # Environment type
         self.is_discrete = type(self.env.action_space) == Discrete
-        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete
+        assert self.is_discrete or type(self.env.action_space) == Continuous
 
         # Number of actions
         action_shape = self.env.action_space.shape
@@ -109,15 +94,8 @@ class Env:
     def reset(self):
         # Set a deterministic random seed for reproduicability
         self.env.seed(random.getrandbits(31))
-        if self.game == "13Bus":
-            idx =  random.randint(0, 50)
-        elif self.game == "34Bus" or self.game == "123Bus":
-            idx = random.randint(0, 15)
         # Reset the state, and the running total reward
-        if hasattr(self, 'worker_idx'):
-            start_state = self.env.reset(load_profile_idx=idx)
-        else:
-            start_state = self.env.reset()
+        start_state = self.env.reset()
         self.total_true_reward = 0.0
         self.counter = 0.0
         self.episode_counter += 1

@@ -1,20 +1,15 @@
 import pickle
 import sqlite3
 from policy_gradients.agent import Trainer
-import git
 import numpy as np
 import os
 import copy
 import random
 import argparse
-from policy_gradients import models
-from policy_gradients.torch_utils import ZFilter
-import sys
 import json
 import torch
-import torch.optim as optim
-from cox.store import Store, schema_from_dict
-from run import main, add_common_parser_opts, override_json_params
+from policy_gradients.store import Store
+from run import add_common_parser_opts, override_json_params
 from auto_LiRPA.eps_scheduler import LinearScheduler
 import logging
 
@@ -60,9 +55,12 @@ def main(params):
     if params['config_path']:
         # Load from a pretrained model using existing config.
         # First we need to create the model using the given config file.
-        json_params = json.load(open(params['config_path']))
+        fin = open(params['config_path'])
+        json_params = json.load(fin)
+        fin.close()
         
         params = override_json_params(params, json_params, excluded_params + sarsa_params + imit_params)
+
 
     if params['sarsa_enable']:
         assert params['attack_method'] == "none" or params['attack_method'] is None, \
@@ -111,15 +109,18 @@ def main(params):
     rewards = []
 
     print('Gaussian noise in policy:')
-    print(torch.exp(p.policy_model.log_stdev))
-    original_stdev = p.policy_model.log_stdev.clone().detach()
+    if not p.policy_model.discrete:
+       print(torch.exp(p.policy_model.log_stdev))
+    original_stdev = None if p.policy_model.discrete  else p.policy_model.log_stdev.clone().detach()
     if params['noise_factor'] != 1.0:
         p.policy_model.log_stdev.data[:] += np.log(params['noise_factor'])
     if params['deterministic']:
         print('Policy runs in deterministic mode. Ignoring Gaussian noise.')
-        p.policy_model.log_stdev.data[:] = -100
+        if not p.policy_model.discrete:
+            p.policy_model.log_stdev.data[:] = -100
     print('Gaussian noise in policy (after adjustment):')
-    print(torch.exp(p.policy_model.log_stdev))
+    if not p.policy_model.discrete:
+       print(torch.exp(p.policy_model.log_stdev))
 
     if params['sarsa_enable']:
         num_steps = params['sarsa_steps']

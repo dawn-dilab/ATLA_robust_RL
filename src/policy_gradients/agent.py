@@ -1,30 +1,24 @@
 import torch
-import torch as ch
 import copy
 import tqdm
 import sys
 import time
 import dill
-import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 import random
 from copy import deepcopy
-import gym
 from auto_LiRPA import BoundedModule
 from auto_LiRPA.eps_scheduler import LinearScheduler
 from auto_LiRPA.bounded_tensor import BoundedTensor
 from auto_LiRPA.perturbations import PerturbationLpNorm
 from .models import *
-from .torch_utils import *
 from .steps import value_step, step_with_mode, pack_history
 from .logging import *
 
-from multiprocessing import Process, Queue
 from .custom_env import Env
 from .convex_relaxation import get_kl_bound as get_state_kl_bound
 
-class Trainer():
+class Trainer(object):
     '''
     This is a class representing a Policy Gradient trainer, which 
     trains both a deep Policy network and a deep Value network.
@@ -38,7 +32,7 @@ class Trainer():
     library
     '''
     def __init__(self, policy_net_class, value_net_class, params,
-                 store, advanced_logging=True, log_every=5):
+                 store, adv_policy_net_class=None, advanced_logging=True, log_every=5):
         '''
         Initializes a new Trainer class.
         Inputs;
@@ -82,6 +76,7 @@ class Trainer():
         self.n_steps = 0
         self.log_every = log_every
         self.policy_net_class = policy_net_class
+        self.adv_policy_net_class = adv_policy_net_class
 
         # Instantiation
         self.policy_model = policy_net_class(self.NUM_FEATURES, self.NUM_ACTIONS,
@@ -107,7 +102,7 @@ class Trainer():
             if self.params.ADV_ENTROPY_COEFF == "same":
                 self.params.ADV_ENTROPY_COEFF = self.params.ENTROPY_COEFF
             # The adversary policy has features as input, features as output.
-            self.adversary_policy_model = policy_net_class(self.NUM_FEATURES, self.NUM_FEATURES,
+            self.adversary_policy_model = adv_policy_net_class(self.NUM_FEATURES, self.NUM_FEATURES,
                                                  self.INITIALIZATION,
                                                  time_in_state=time_in_state,
                                                  activation=self.policy_activation)
@@ -117,7 +112,7 @@ class Trainer():
             # Adversary value function.
             self.adversary_val_model = value_net_class(self.NUM_FEATURES, self.INITIALIZATION)
             self.adversary_val_opt = optim.Adam(self.adversary_val_model.parameters(), lr=self.ADV_VAL_LR, eps=1e-5)
-            assert self.adversary_policy_model.discrete == (self.AGENT_TYPE == "discrete")
+            # assert self.adversary_policy_model.discrete == (self.AGENT_TYPE == "discrete")
 
             # Learning rate annealling for adversary.
             if self.ANNEAL_LR:
@@ -152,7 +147,7 @@ class Trainer():
         # Value function optimization
         self.val_model = value_net_class(self.NUM_FEATURES, self.INITIALIZATION)
         self.val_opt = optim.Adam(self.val_model.parameters(), lr=self.VAL_LR, eps=1e-5) 
-        assert self.policy_model.discrete == (self.AGENT_TYPE == "discrete")
+        # assert self.policy_model.discrete == (self.AGENT_TYPE == "discrete")
 
         # Learning rate annealing
         # From OpenAI hyperparametrs:
@@ -396,7 +391,21 @@ class Trainer():
         normed_rewards, states, not_dones = [], [], []
         completed_episode_info = []
         for action, env in zip(actions, envs):
-            gym_action = action[0].cpu().numpy()
+            # 如果 是power gym
+            if self.params['game'] == '13Bus' or self.params['game'] == '34Bus':
+                action = torch.sigmoid(action)
+                gym_action = action[0].cpu().numpy()
+                two_action_list = [map_to_discrete(val, 2) for val in gym_action[0:2]]
+                four_action_list = [map_to_discrete(val, 32) for val in gym_action[2:]]
+                gym_action = two_action_list + four_action_list
+            elif self.params['game'] == '123Bus':
+                action = torch.sigmoid(action)
+                gym_action = action[0].cpu().numpy()
+                two_action_list = [map_to_discrete(val, 2) for val in gym_action[0:4]]
+                four_action_list = [map_to_discrete(val, 32) for val in gym_action[4:]]
+                gym_action = two_action_list + four_action_list
+            else:
+                gym_action = action[0].cpu().numpy()
             new_state, normed_reward, is_done, info = env.step(gym_action)
             if is_done:
                 completed_episode_info.append(info['done'])
@@ -455,9 +464,10 @@ class Trainer():
             assert self.MODE == "adv_ppo" or self.MODE == "adv_trpo" or self.MODE == "adv_sa_ppo"
             # For the adversary, action is a state perturbation.
             actions_shape = shape + (self.NUM_FEATURES,)
+            actions = ch.zeros(actions_shape)
         else:
             actions_shape = shape + (self.NUM_ACTIONS,)
-        actions = ch.zeros(actions_shape)
+            actions = ch.zeros(shape + (1,)) if self.policy_model.discrete else ch.zeros(actions_shape)
         # Mean of the action distribution. Used for avoid unnecessary recomputation.
         action_means = ch.zeros(actions_shape)
         # Log Std of the action distribution.
@@ -500,8 +510,11 @@ class Trainer():
                 if collect_adversary_trajectory or self.params.ADV_ADVERSARY_RATIO >= random.random():
                     # Only attack a portion of steps.
                     adv_perturbation_pds = self.adversary_policy_model(last_states)
-                    next_adv_perturbation_means, next_adv_perturbation_stds = adv_perturbation_pds
-                    # sample from the density.
+                    if not self.adversary_policy_model.discrete:
+                        next_adv_perturbation_means, next_adv_perturbation_stds = adv_perturbation_pds
+                    else:
+                        next_adv_perturbation_means = adv_perturbation_pds
+                        # sample from the density.
                     next_adv_perturbations = self.adversary_policy_model.sample(adv_perturbation_pds)
                     # get log likelyhood for this perturbation.
                     next_adv_perturbation_log_probs = self.adversary_policy_model.get_loglikelihood(adv_perturbation_pds, next_adv_perturbations)
@@ -526,7 +539,10 @@ class Trainer():
             self.policy_model.continue_history()
             self.val_model.continue_history()
             action_pds = self.policy_model(last_states)
-            next_action_means, next_action_stds = action_pds
+            if not self.policy_model.discrete:
+                next_action_means, next_action_stds = action_pds
+            else:
+                next_action_means = action_pds
             next_actions = self.policy_model.sample(action_pds)
             next_action_log_probs = self.policy_model.get_loglikelihood(action_pds, next_actions)
 
@@ -640,7 +656,7 @@ class Trainer():
         states = states[:,:-1,:]
         trajs = Trajectories(rewards=rewards, 
             action_log_probs=action_log_probs, not_dones=not_dones, 
-            actions=actions, states=states, action_means=action_means, action_std=next_action_stds)
+            actions=actions, states=states, action_means=action_means, action_std= None if self.policy_model.discrete else next_action_stds)
 
         to_ret = (avg_episode_length, avg_episode_reward, trajs)
         if return_rewards:
@@ -799,7 +815,7 @@ class Trainer():
             # Attack using a learned policy network.
             assert self.params.ATTACK_ADVPOLICY_NETWORK is not None
             if not hasattr(self, "attack_policy_network"):
-                self.attack_policy_network = self.policy_net_class(self.NUM_FEATURES, self.NUM_FEATURES,
+                self.attack_policy_network = self.adv_policy_net_class(self.NUM_FEATURES, self.NUM_FEATURES,
                                                  self.INITIALIZATION,
                                                  time_in_state=self.VALUE_CALC == "time",
                                                  activation=self.policy_activation)
@@ -1263,9 +1279,12 @@ class Trainer():
 
             action_pds = self.policy_model(maybe_attacked_last_states)
             if hasattr(self, "imit_network"):
-                _ = self.imit_network(maybe_attacked_last_states) 
-            
-            next_action_means, next_action_stds = action_pds
+                _ = self.imit_network(maybe_attacked_last_states)
+
+            if not self.policy_model.discrete:
+                next_action_means, next_action_stds = action_pds
+            else:
+                next_action_means = action_pds
             # Double check if the attack is within eps range.
             if self.params.ATTACK_METHOD != "none":
                 max_eps = (maybe_attacked_last_states - last_states).abs().max()
@@ -1417,12 +1436,14 @@ class Trainer():
         '''
         if params['history_length'] > 0:
             agent_policy = CtsLSTMPolicy
+            adv_agent_policy = CtsLSTMPolicy
             if params['use_lstm_val']:
                 agent_value = ValueLSTMNet
             else:
                 agent_value = value_net_with_name(params['value_net_type'])
         else:
             agent_policy = policy_net_with_name(params['policy_net_type'])
+            adv_agent_policy = policy_net_with_name(params['adv_policy_net_type'])
             agent_value = value_net_with_name(params['value_net_type'])
 
         advanced_logging = params['advanced_logging'] and store is not None
@@ -1430,8 +1451,19 @@ class Trainer():
 
         if params['cpu']:
             torch.set_num_threads(1)
-        p = Trainer(agent_policy, agent_value, params, store, log_every=log_every,
+        p = Trainer(agent_policy, agent_value, params, store, adv_policy_net_class=adv_agent_policy, log_every=log_every,
                     advanced_logging=advanced_logging)
 
         return p
 
+def map_to_discrete(value, threshold):
+    # 第一步：归一化，将 [-1, 1] 映射到 [0, 1]
+    normalized = value
+    # 第二步：缩放，将 [0, 1] 映射到 离散值 {0,1} 或者{0, 32}
+    scaled = normalized * threshold
+    # 将结果转换为整数
+    discrete_value = int(round(scaled))
+    # 确保结果在 0 到 32 的范围内
+    discrete_value = min(max(discrete_value, 0), threshold)
+
+    return discrete_value

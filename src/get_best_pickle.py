@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import argparse
 import uuid
 from cox.store import Store
@@ -35,6 +34,16 @@ def get_env_name(name):
         return 'hopper'
     elif 'walker' in name:
         return 'walker'
+    elif 'cartpole' in name:
+        return 'cartpole'
+    elif 'pendulum' in name:
+        return 'pendulum'
+    elif '13Bus' in name:
+        return '13Bus'
+    elif '34Bus' in name:
+        return '34Bus'
+    elif '123Bus' in name:
+        return '123Bus'
     return 'unknown'
 
 def main(args):
@@ -75,6 +84,20 @@ def main(args):
             env_name = get_env_name(base_directory)
             alg_name = get_alg_name(base_directory)
             store = Store(base_directory, best_exp_id)
+
+            # # cartpole test
+            # ckpts = store['checkpoints']
+            # # index_id = ckpts.df['5_rewards'].idxmax()
+            # index_id = 5 # 5  # 37  38 40
+
+            # ckpts = store['checkpoints']
+            # index_id = ckpts.df['5_rewards'].idxmax()
+
+
+            # 13Bus 测试
+            # ckpts = store['checkpoints']
+            # index_id = 1 # 0
+
             if 'final_results' in store.tables and not args.all_ckpts:
                 table_name = 'final_results'
                 index_id = 0
@@ -83,6 +106,7 @@ def main(args):
                 print(f'Warning: final_results table not found for expid {best_exp_id}, using last checkpoints')
                 index_id = -1  # use last checkpoint
             ckpts = store[table_name]
+
             print('loading from exp id:', best_exp_id, ' reward: ', ckpts.df['5_rewards'].iloc[index_id] if '5_rewards' in ckpts.df else "training not finished")
             
             def dump_model(sel_ckpts, sel_index_id, sel_path):
@@ -92,7 +116,7 @@ def main(args):
                     if name in sel_ckpts.df:
                         print(f'Saving {name} out of {len(sel_ckpts.df[name])}')
                         P[name] = sel_ckpts.get_state_dict(sel_ckpts.df[name].iloc[sel_index_id])
-                P['envs'] = sel_ckpts.get_pickle(sel_ckpts.df['envs'].iloc[sel_index_id])
+                # P['envs'] = sel_ckpts.get_pickle(sel_ckpts.df['envs'].iloc[sel_index_id])
                 
                 ch.save(P, sel_path)
                 print('\n', sel_path, 'saved.\n')

@@ -80,7 +80,7 @@ each folder, you can find agent models (starting with `model-`) as well as the
 adversary we learned for the optimal adversarial attacks (starting with
 `attack-`). We will show how to load these models in later sections. The
 performance of our pretrained agents are reported below. Here we report our
-strongest ATLA-PPO (LSTAM + SA-Reg) method and a strong baseline SA-PPO, as
+strongest ATLA-PPO (LSTM + SA-Reg) method and a strong baseline SA-PPO, as
 well as vanilla PPO without robust training.  We report their natural episode
 rewards without attack as well as episode rewards under our proposed optimal
 attack. For full results with more baselines please checkout [our paper](https://arxiv.org/pdf/2101.08452.pdf).
@@ -445,3 +445,36 @@ Note that snooping attack is a blackbox attack (does not require the gradient
 of the agent policy or interaction with the agent), so it is usually weaker
 than other whitebox attacks. In the above example, it should achieve an
 average episode reward of roughly 3000.
+
+```bash
+python test.py --config-path config_cartpole_atla_ppo.json --load-model ./best_model.35692daf.model --deterministic  --attack-eps=0.15  --attack-method advpolicy --attack-advpolicy-network ./best_model.35692daf.model 
+```
+
+```shell
+python test.py --config-path config_cartpole_atla_ppo.json --load-model ./best_model.35692daf.model --deterministic  --attack-eps=0.15 --attack-method random 
+
+```
+
+```shell
+python test.py --config-path config_34Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.4b757818.model  --deterministic
+```
+
+```shell
+python test.py --config-path config_34Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.4b757818.model  --deterministic  --attack-eps=0.3 --attack-method random
+```
+
+```shell
+python test.py --config-path config_34Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.4b757818.model  --deterministic  --attack-eps=0.3 --attack-method advpolicy --attack-advpolicy-network /root/code/ATLA_robust_RL/best_model.4b757818.model 
+```
+
+```shell
+python test.py --config-path config_13Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.88feb334.model  --deterministic
+```
+
+```shell
+python test.py --config-path config_13Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.88feb334.model  --deterministic --attack-eps=0.15 --attack-method random
+```
+
+```shell
+python test.py --config-path config_13Bus_atla_ppo.json --load-model /root/code/ATLA_robust_RL/best_model.88feb334.model  --deterministic --attack-eps=0.3 --attack-method advpolicy --attack-advpolicy-network /root/code/ATLA_robust_RL/best_model.88feb334.model 
+```

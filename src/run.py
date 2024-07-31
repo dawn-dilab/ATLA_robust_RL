@@ -1,17 +1,17 @@
 from policy_gradients.agent import Trainer
 import git
-import pickle
 import random
 import numpy as np
 import os
 import argparse
 import traceback
-from policy_gradients import models
 import sys
 import json
 import torch
-from cox.store import Store, schema_from_dict
-
+from policy_gradients.store import Store, schema_from_dict
+from policy_gradients import models
+import warnings
+warnings.filterwarnings("ignore",category=DeprecationWarning)
 
 # Tee object allows for logging to both stdout and to file
 class Tee(object):
@@ -247,6 +247,8 @@ def add_common_parser_opts(parser):
     parser.add_argument('--log-every', type=int)
     parser.add_argument('--policy-net-type', type=str,
                         choices=models.POLICY_NETS.keys())
+    parser.add_argument('--adv-policy-net-type', type=str,
+                        choices=models.POLICY_NETS.keys())
     parser.add_argument('--value-net-type', type=str,
                         choices=models.VALUE_NETS.keys())
     parser.add_argument('--train-steps', type=int,
@@ -371,13 +373,13 @@ def override_json_params(params, json_params, excluding_params):
     for key in json_params:
         if key not in params:
             missing_keys.append(key)
-    assert not missing_keys, "Following keys not in args: " + str(missing_keys)
+    # assert not missing_keys, "Following keys not in args: " + str(missing_keys)
 
     missing_keys = []
     for key in params:
         if key not in json_params and key not in excluding_params:
             missing_keys.append(key)
-    assert not missing_keys, "Following keys not in JSON: " + str(missing_keys)
+    # assert not missing_keys, "Following keys not in JSON: " + str(missing_keys)
 
     json_params.update({k: params[k] for k in params if params[k] is not None})
     return json_params
@@ -393,14 +395,15 @@ if __name__ == '__main__':
     parser.add_argument('--no-load-adv-policy', action='store_true', required=False, help='Do not load adversary policy and value network from pretrained model.')
     parser.add_argument('--adv-policy-only', action='store_true', required=False, help='Run adversary only, by setting main agent learning rate to 0')
     parser.add_argument('--deterministic', action='store_true', help='disable Gaussian noise in action for --adv-policy-only mode')
-    parser.add_argument('--seed', type=int, help='random seed', default=-1)
+    parser.add_argument('--seed', type=int, help='random seed', default=0)
     parser = add_common_parser_opts(parser)
     
     args = parser.parse_args()
 
     params = vars(args)
     seed = params['seed']
-    json_params = json.load(open(args.config_path))
+    with open(args.config_path) as file:
+        json_params = json.load(file)
 
     extra_params = ['config_path', 'out_dir_prefix', 'load_model', 'no_load_adv_policy', 'adv_policy_only', 'deterministic', 'seed']
     params = override_json_params(params, json_params, extra_params)
