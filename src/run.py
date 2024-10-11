@@ -3,6 +3,7 @@ import git
 import random
 import numpy as np
 import os
+import time
 import argparse
 import traceback
 import sys
@@ -10,6 +11,7 @@ import json
 import torch
 from policy_gradients.store import Store, schema_from_dict
 from policy_gradients import models
+
 import warnings
 warnings.filterwarnings("ignore",category=DeprecationWarning)
 
@@ -429,5 +431,10 @@ if __name__ == '__main__':
     if args.out_dir_prefix:
         params['out_dir'] = os.path.join(args.out_dir_prefix, params['out_dir'])
         print(f"setting output dir to {params['out_dir']}")
-    main(params)
 
+    # 记录开始时间
+    start_time = time.perf_counter()
+    main(params)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Total Elapsed Time: {elapsed_time:.6f} seconds")

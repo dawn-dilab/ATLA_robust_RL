@@ -60,7 +60,7 @@ Worst 攻击 eps=0.15
 mean: -6.237913092412653, std:0.0, min:-6.237913092412653, max:-6.237913092412653
 
 
-
+python test.py /root/code/ATLA_robust_RL/atla_ppo_123Bus/agents/50d22a76-603f-449f-86fa-b565a8d6433c
 
 
 

@@ -404,6 +404,12 @@ class Trainer(object):
                 two_action_list = [map_to_discrete(val, 2) for val in gym_action[0:4]]
                 four_action_list = [map_to_discrete(val, 32) for val in gym_action[4:]]
                 gym_action = two_action_list + four_action_list
+            elif self.params['game'] == '8500Node':
+                action = torch.sigmoid(action)
+                gym_action = action[0].cpu().numpy()
+                two_action_list = [map_to_discrete(val, 2) for val in gym_action[0:10]]
+                four_action_list = [map_to_discrete(val, 32) for val in gym_action[10:]]
+                gym_action = two_action_list + four_action_list
             else:
                 gym_action = action[0].cpu().numpy()
             new_state, normed_reward, is_done, info = env.step(gym_action)
@@ -703,6 +709,16 @@ class Trainer(object):
             # Apply an uniform random noise.
             noise = torch.empty_like(last_states).uniform_(-eps, eps)
             return (last_states + noise).detach()
+
+        elif self.params.ATTACK_METHOD == "gaussian":
+            # Apply Gaussian (normal) noise.
+            noise = torch.normal(mean=0, std=eps / 3.0, size=last_states.size(), device=last_states.device)
+            return (last_states + noise).detach()
+        elif self.params.ATTACK_METHOD == "poisson":
+            last_states_positive = torch.clamp(last_states, min=0)  # 将所有小于0的值设置为0
+            noise = torch.poisson(last_states_positive)
+            return (last_states + noise - last_states_positive).detach()
+
         elif self.params.ATTACK_METHOD == "action" or self.params.ATTACK_METHOD == "action+imit":
             if steps > 0:
                 if self.params.ATTACK_STEP_EPS == "auto":
@@ -827,6 +843,29 @@ class Trainer(object):
             perturbations_mean, _ = self.attack_policy_network(last_states)
             # Clamp using tanh.
             perturbed_states = last_states + ch.nn.functional.hardtanh(perturbations_mean) * eps
+            """
+            adv_perturbation_pds = self.attack_policy_network(last_states)
+            next_adv_perturbations = self.attack_policy_network.sample(adv_perturbation_pds)
+            perturbed_states = last_states + ch.tanh(next_adv_perturbations) * eps
+            """
+            return perturbed_states.detach()
+        elif self.params.ATTACK_METHOD == "paadvpolicy":
+            # Attack using a learned policy network.
+            assert self.params.ATTACK_ADVPOLICY_NETWORK is not None
+            if not hasattr(self, "attack_policy_network"):
+                self.attack_policy_network = self.adv_policy_net_class(self.NUM_FEATURES, self.NUM_ACTIONS,
+                                                                       self.INITIALIZATION,
+                                                                       time_in_state=self.VALUE_CALC == "time",
+                                                                       activation=self.policy_activation)
+                print("Loading adversary policy network", self.params.ATTACK_ADVPOLICY_NETWORK)
+                advpolicy_ckpt = torch.load(self.params.ATTACK_ADVPOLICY_NETWORK)
+                self.attack_policy_network.load_state_dict(advpolicy_ckpt['adversary_policy_model'])
+            # Unlike other attacks we don't need step or eps here.
+            # We don't sample and use deterministic adversary policy here.
+            perturbations_mean, _ = self.attack_policy_network(last_states)
+            # Clamp using tanh.
+            perturbed_states = last_states + \
+                               self.perturb_obs_fgsm(perturbations_mean, last_states)
             """
             adv_perturbation_pds = self.attack_policy_network(last_states)
             next_adv_perturbations = self.attack_policy_network.sample(adv_perturbation_pds)
@@ -1146,8 +1185,20 @@ class Trainer(object):
             policy_model = self.policy_model
 
         num_saps = self.T * self.NUM_ACTORS
+
+        start_time1 = time.perf_counter()
         saps, avg_ep_reward, avg_ep_length = self.collect_saps(num_saps, collect_adversary_trajectory=adversary_step)
-        policy_loss, surr_loss, entropy_bonus, val_loss = self.take_steps(saps, adversary_step=adversary_step, increment_scheduler=increment_scheduler)
+        end_time1 = time.perf_counter()
+        elapsed_time1 = end_time1 - start_time1
+        print(f"Elapsed Time1: {elapsed_time1:.6f} seconds")
+
+        start_time2 = time.perf_counter()
+        policy_loss, surr_loss, entropy_bonus, val_loss = self.take_steps(saps, adversary_step=adversary_step,
+                                                                          increment_scheduler=increment_scheduler)
+        end_time2 = time.perf_counter()
+        elapsed_time2 = end_time2 - start_time2
+        print(f"Elapsed Time2: {elapsed_time2:.6f} seconds")
+
         # Logging code
         print(f"Policy Loss: {policy_loss:.5g}, | Entropy Bonus: {entropy_bonus:.5g}, | Value Loss: {val_loss:.5g}")
         print("Time elapsed (s):", time.time() - start_time)
