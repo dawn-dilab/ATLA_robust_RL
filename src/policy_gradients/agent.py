@@ -712,14 +712,13 @@ class Trainer(object):
 
         elif self.params.ATTACK_METHOD == "gaussian":
             # Apply Gaussian (normal) noise.
-            noise = torch.normal(mean=0, std=eps / 3.0, size=last_states.size(), device=last_states.device)
-            noise = torch.clamp(noise, -1 * self._epsilon, self._epsilon)
+            noise = torch.normal(mean=0, std= eps / 3.0, size=last_states.size(), device=last_states.device)
+            noise = torch.clamp(noise, -1 * eps, eps)
             return (last_states + noise).detach()
         elif self.params.ATTACK_METHOD == "poisson":
             last_states_positive = torch.clamp(last_states, min=0)  # 将所有小于0的值设置为0
             noise = torch.poisson(last_states_positive)
-            noise = torch.clamp(noise, -1 * self._epsilon, self._epsilon)
-            return (last_states + noise - last_states_positive).detach()
+            return (last_states + torch.clamp(noise - last_states_positive, -1 * eps, eps)).detach()
 
         elif self.params.ATTACK_METHOD == "action" or self.params.ATTACK_METHOD == "action+imit":
             if steps > 0:
@@ -844,7 +843,7 @@ class Trainer(object):
             # We don't sample and use deterministic adversary policy here.
             perturbations_mean, _ = self.attack_policy_network(last_states)
             # Clamp using tanh.
-            noise = torch.clamp(ch.nn.functional.hardtanh(perturbations_mean) * eps, -1 * self._epsilon, self._epsilon)
+            noise = torch.clamp(ch.nn.functional.hardtanh(perturbations_mean) * eps, -1 * eps, eps)
             perturbed_states = last_states + noise
             """
             adv_perturbation_pds = self.attack_policy_network(last_states)
@@ -866,7 +865,7 @@ class Trainer(object):
             # Unlike other attacks we don't need step or eps here.
             # We don't sample and use deterministic adversary policy here.
             perturbations_mean, _ = self.attack_policy_network(last_states)
-            noise = torch.clamp(self.perturb_obs_fgsm(perturbations_mean, last_states), -1 * self._epsilon, self._epsilon)
+            noise = torch.clamp(self.perturb_obs_fgsm(perturbations_mean, last_states), -1 * eps, eps)
 
             # Clamp using tanh.
             perturbed_states = last_states + noise
