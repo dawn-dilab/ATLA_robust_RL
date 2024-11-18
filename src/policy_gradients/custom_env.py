@@ -33,6 +33,15 @@ class Env:
             self.env = make_env(game, worker_idx=self.worker_idx)
             # self.env.seed(self.env_seed + 0 if self.worker_idx is None else self.worker_idx)
             self.env.seed(random.getrandbits(31))
+        elif 'highway_env' in params:
+            import gymnasium as gym
+            import highway_env
+            gym.register_envs(highway_env)
+            self.env = gym.make(game, render_mode='rgb_array', config={
+                "action": {
+                    "type": 'ContinuousAction'
+                }
+            })
         else:
             self.env = gym.make(game)
         self.game = game
@@ -104,18 +113,17 @@ class Env:
                 print('Warning: requested to set reward_filter.read_only=True but the underlying ZFilter does not support it.')
             elif hasattr(self.reward_filter, 'read_only'):
                 self.reward_filter.read_only = self._read_only
-    
 
     def reset(self):
         # Set a deterministic random seed for reproduicability
         self.env.seed(random.getrandbits(31))
         if self.game == "13Bus":
-            idx =  random.randint(0, 50)
+            idx = random.randint(0, 50)
+            start_state = self.env.reset(load_profile_idx=idx)
         elif self.game == "34Bus" or self.game == "123Bus" or self.game == "8500Node":
             idx = random.randint(0, 15)
-        # Reset the state, and the running total reward
-        if hasattr(self, 'worker_idx'):
             start_state = self.env.reset(load_profile_idx=idx)
+        # Reset the state, and the running total reward
         else:
             start_state = self.env.reset()
         self.total_true_reward = 0.0
