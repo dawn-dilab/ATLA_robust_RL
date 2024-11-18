@@ -34,10 +34,10 @@ class Env:
             # self.env.seed(self.env_seed + 0 if self.worker_idx is None else self.worker_idx)
             self.env.seed(random.getrandbits(31))
         elif 'highway_env' in params:
-            import gymnasium as gym
+            import gymnasium as gymna
             import highway_env
-            gym.register_envs(highway_env)
-            self.env = gym.make(game, render_mode='rgb_array', config={
+            gymna.register_envs(highway_env)
+            self.env = gymna.make(game, render_mode='rgb_array', config={
                 "action": {
                     "type": 'ContinuousAction'
                 }
@@ -50,7 +50,7 @@ class Env:
 
         # Environment type
         self.is_discrete = type(self.env.action_space) == Discrete
-        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete or type(self.env.action_space) == gym.spaces.box.Box
+        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete or type(self.env.action_space) == gymna.spaces.box.Box
 
         # Number of actions
         action_shape = self.env.action_space.shape
@@ -63,7 +63,7 @@ class Env:
             assert len(self.env.observation_space.shape) == 1
             self.num_features = self.env.reset().shape[0]
         else:
-            self.num_features = self.env.reset().size
+            self.num_features = self.env.reset()[0].size
 
         # Support for state normalization or using time as a feature
         self.state_filter = Identity()
