@@ -6,6 +6,7 @@ import time
 import dill
 import torch.optim as optim
 import random
+import numpy as np
 from copy import deepcopy
 from auto_LiRPA import BoundedModule
 from auto_LiRPA.eps_scheduler import LinearScheduler
@@ -373,7 +374,7 @@ class Trainer(object):
         if self.CPU:
             return cpu_tensorize([env.reset() for env in envs]).unsqueeze(1)
         else:
-            return cu_tensorize([env.reset() for env in envs]).unsqueeze(1)
+            return cu_tensorize(np.array([env.reset() for env in envs])).unsqueeze(1)
 
     def multi_actor_step(self, actions, envs):
         '''
