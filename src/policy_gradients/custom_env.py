@@ -133,7 +133,7 @@ class Env:
             if 'highway_env' not in self.params:
                start_state = self.env.reset()
             else:
-               start_sate, _ = self.env.reset()
+               start_state, _ = self.env.reset()
         self.total_true_reward = 0.0
         self.counter = 0.0
         self.episode_counter += 1
