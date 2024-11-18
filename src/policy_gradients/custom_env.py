@@ -134,6 +134,7 @@ class Env:
                start_state = self.env.reset()
             else:
                start_state, _ = self.env.reset()
+               start_state = start_state.reshape(start_state.size).astype('float32')
         self.total_true_reward = 0.0
         self.counter = 0.0
         self.episode_counter += 1
@@ -149,6 +150,7 @@ class Env:
             state, reward, is_done, info = self.env.step(action)
         else:
             state, reward, terminated, truncated, info = self.env.step(action)
+            state = state.reshape(state.size).astype('float32')
             is_done = terminated or truncated
         if self.show_env:
             self.env.render()
