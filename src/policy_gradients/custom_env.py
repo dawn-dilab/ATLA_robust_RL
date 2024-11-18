@@ -26,6 +26,7 @@ class Env:
     '''
     def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None, 
             show_env=False, save_frames=False, save_frames_path=""):
+        self.params = params
         if 'powergym_env' in params:
             self.worker_idx = params['worker_idx']
             self.env_seed = params['seed']
@@ -128,7 +129,10 @@ class Env:
             start_state = self.env.reset(load_profile_idx=idx)
         # Reset the state, and the running total reward
         else:
-            start_state = self.env.reset()
+            if 'highway_env' not in self.params:
+               start_state = self.env.reset()
+            else:
+               start_sate, _ = self.env.reset()
         self.total_true_reward = 0.0
         self.counter = 0.0
         self.episode_counter += 1
@@ -140,7 +144,11 @@ class Env:
         return self.state_filter(start_state, reset=True)
 
     def step(self, action):
-        state, reward, is_done, info = self.env.step(action)
+        if 'highway_env' not in self.params:
+            state, reward, is_done, info = self.env.step(action)
+        else:
+            state, reward, terminated, truncated, info = self.env.step(action)
+            is_done = terminated or truncated
         if self.show_env:
             self.env.render()
         # Frameskip (every 6 frames, will be rendered at 25 fps)
