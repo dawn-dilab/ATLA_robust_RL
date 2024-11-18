@@ -67,7 +67,7 @@
     "save_iters": 50,
     "share_weights": false,
     "show_env": false,
-    "t": 2048,
+    "t": 128,
     "train_steps": 600,
     "trpo_kl_reduce_func": "mean",
     "use_lstm_val": true,
