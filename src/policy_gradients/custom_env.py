@@ -120,7 +120,8 @@ class Env:
 
     def reset(self):
         # Set a deterministic random seed for reproduicability
-        self.env.seed(random.getrandbits(31))
+        if 'highway_env' not in self.params:
+            self.env.seed(random.getrandbits(31))
         if self.game == "13Bus":
             idx = random.randint(0, 50)
             start_state = self.env.reset(load_profile_idx=idx)
