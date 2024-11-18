@@ -50,7 +50,7 @@ class Env:
 
         # Environment type
         self.is_discrete = type(self.env.action_space) == Discrete
-        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete
+        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete or type(self.env.action_space) == gym.spaces.box.Box
 
         # Number of actions
         action_shape = self.env.action_space.shape
