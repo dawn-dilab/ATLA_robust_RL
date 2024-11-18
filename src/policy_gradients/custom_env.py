@@ -57,10 +57,13 @@ class Env:
         assert len(action_shape) <= 1 # scalar or vector actions
         self.num_actions = self.env.action_space.n if self.is_discrete else 0 \
                             if len(action_shape) == 0 else action_shape[0]
-        
-        # Number of features
-        assert len(self.env.observation_space.shape) == 1
-        self.num_features = self.env.reset().shape[0]
+
+        if 'highway_env' not in params:
+            # Number of features
+            assert len(self.env.observation_space.shape) == 1
+            self.num_features = self.env.reset().shape[0]
+        else:
+            self.num_features = self.env.reset().size
 
         # Support for state normalization or using time as a feature
         self.state_filter = Identity()
