@@ -30,6 +30,7 @@
     "entropy_coeff": 0.01,
     "fisher_frac_samples": 0.1,
     "force_stop_step": -1,
+    "highway_env": true,
     "game": "highway-v0",
     "gamma": 0.99,
     "history_length": -1,
