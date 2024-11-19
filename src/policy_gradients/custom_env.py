@@ -6,11 +6,14 @@ import gym
 import random
 from .torch_utils import ZFilter, Identity, StateWithTime, RewardFilter
 from gym.spaces import MultiDiscrete
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(os.path.dirname(current_dir))
 import sys
+
 sys.path.append(parent_dir)
 from src.powergym.powergym.env_register import make_env
+
 
 class Env:
     '''
@@ -24,8 +27,9 @@ class Env:
     - Size of action space
     Provides the same API (init, step, reset) as the OpenAI gym
     '''
-    def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None, 
-            show_env=False, save_frames=False, save_frames_path=""):
+
+    def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None,
+                 show_env=False, save_frames=False, save_frames_path=""):
         self.params = params
         if 'powergym_env' in params:
             self.worker_idx = params['worker_idx']
@@ -51,29 +55,30 @@ class Env:
 
         # Environment type
         self.is_discrete = type(self.env.action_space) == Discrete
-        assert self.is_discrete or type(self.env.action_space) == Continuous or type(self.env.action_space) == MultiDiscrete or type(self.env.action_space) == gymna.spaces.box.Box
+        assert self.is_discrete or type(self.env.action_space) == Continuous or type(
+            self.env.action_space) == MultiDiscrete or type(self.env.action_space) == gymna.spaces.box.Box
 
         # Number of actions
         action_shape = self.env.action_space.shape
-        assert len(action_shape) <= 1 # scalar or vector actions
+        assert len(action_shape) <= 1  # scalar or vector actions
         self.num_actions = self.env.action_space.n if self.is_discrete else 0 \
-                            if len(action_shape) == 0 else action_shape[0]
+            if len(action_shape) == 0 else action_shape[0]
 
         if 'highway_env' not in params:
             # Number of features
             assert len(self.env.observation_space.shape) == 1
             self.num_features = self.env.reset().shape[0]
         else:
-            self.num_features = self.env.reset()[0].size
+            self.num_features = self.env.reset(seed=0)[0].size
 
         # Support for state normalization or using time as a feature
         self.state_filter = Identity()
         if norm_states:
             self.state_filter = ZFilter(self.state_filter, shape=[self.num_features], \
-                                            clip=clip_obs)
+                                        clip=clip_obs)
         if add_t_with_horizon is not None:
             self.state_filter = StateWithTime(self.state_filter, horizon=add_t_with_horizon)
-        
+
         # Support for rewards normalization
         self.reward_filter = Identity()
         if norm_rewards == "rewards":
@@ -99,7 +104,7 @@ class Env:
         if self.save_frames:
             print(f'We will save frames to {self.save_frames_path}!')
             os.makedirs(os.path.join(self.save_frames_path, "000"), exist_ok=True)
-    
+
     @property
     def normalizer_read_only(self):
         return self._read_only
@@ -109,12 +114,14 @@ class Env:
         self._read_only = bool(value)
         if isinstance(self.state_filter, ZFilter):
             if not hasattr(self.state_filter, 'read_only') and value:
-                print('Warning: requested to set state_filter.read_only=True but the underlying ZFilter does not support it.')
+                print(
+                    'Warning: requested to set state_filter.read_only=True but the underlying ZFilter does not support it.')
             elif hasattr(self.state_filter, 'read_only'):
                 self.state_filter.read_only = self._read_only
         if isinstance(self.reward_filter, ZFilter) or isinstance(self.reward_filter, RewardFilter):
             if not hasattr(self.reward_filter, 'read_only') and value:
-                print('Warning: requested to set reward_filter.read_only=True but the underlying ZFilter does not support it.')
+                print(
+                    'Warning: requested to set reward_filter.read_only=True but the underlying ZFilter does not support it.')
             elif hasattr(self.reward_filter, 'read_only'):
                 self.reward_filter.read_only = self._read_only
 
@@ -131,10 +138,10 @@ class Env:
         # Reset the state, and the running total reward
         else:
             if 'highway_env' not in self.params:
-               start_state = self.env.reset()
+                start_state = self.env.reset()
             else:
-               start_state, _ = self.env.reset(seed=random.getrandbits(31))
-               start_state = start_state.reshape(start_state.size).astype('float32')
+                start_state, _ = self.env.reset(seed=0)
+                start_state = start_state.reshape(start_state.size).astype('float32')
         self.total_true_reward = 0.0
         self.counter = 0.0
         self.episode_counter += 1
@@ -157,7 +164,8 @@ class Env:
         # Frameskip (every 6 frames, will be rendered at 25 fps)
         if self.save_frames and int(self.counter) % 6 == 0:
             image = self.env.render(mode='rgb_array')
-            path = os.path.join(self.save_frames_path, f"{self.episode_counter:03d}", f"{self.frame_counter+1:04d}.bmp")
+            path = os.path.join(self.save_frames_path, f"{self.episode_counter:03d}",
+                                f"{self.frame_counter + 1:04d}.bmp")
             image = Image.fromarray(image)
             image.save(path)
             self.frame_counter += 1
@@ -168,5 +176,3 @@ class Env:
         if is_done:
             info['done'] = (self.counter, self.total_true_reward)
         return state, _reward, is_done, info
-
-    
