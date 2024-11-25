@@ -95,17 +95,17 @@ def main(args):
 
 
             # 13Bus 测试
-            ckpts = store['checkpoints']
-            index_id = 10 # 0
+            # ckpts = store['checkpoints']
+            # index_id = 10 # 0
 
-            # if 'final_results' in store.tables and not args.all_ckpts:
-            #     table_name = 'final_results'
-            #     index_id = 0
-            # else:
-            #     table_name = 'checkpoints'
-            #     print(f'Warning: final_results table not found for expid {best_exp_id}, using last checkpoints')
-            #     index_id = -1  # use last checkpoint
-            # ckpts = store[table_name]
+            if 'final_results' in store.tables and not args.all_ckpts:
+                table_name = 'final_results'
+                index_id = 0
+            else:
+                table_name = 'checkpoints'
+                print(f'Warning: final_results table not found for expid {best_exp_id}, using last checkpoints')
+                index_id = -1  # use last checkpoint
+            ckpts = store[table_name]
 
             print('loading from exp id:', best_exp_id, ' reward: ', ckpts.df['5_rewards'].iloc[index_id] if '5_rewards' in ckpts.df else "training not finished")
             
@@ -162,7 +162,7 @@ def main(args):
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('base_directory', type=str, help='agent dir containing cox experiments')
+    parser.add_argument('--base_directory', type=str, help='agent dir containing cox experiments')
     parser.add_argument('--output', type=str, default='', help='output model filename')
     parser.add_argument('--best', action='store_true', help='select best instead of median')
     parser.add_argument('--exp_id', default='', help='specify an exp id to extract')
