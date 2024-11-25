@@ -334,7 +334,7 @@ def add_common_parser_opts(parser):
     parser.add_argument('--adv-adversary-ratio', type=float, help='percentage of frames to attack for the adversary')
 
     # Adversarial attack parameters.
-    parser.add_argument('--attack-method', type=str, choices=["none", "critic", "random", "action", "sarsa", "sarsa+action", "advpolicy", "action+imit"], help='adversarial attack methods.')
+    parser.add_argument('--attack-method', type=str, choices=["none", "critic", "random", "action", "sarsa", "sarsa+action", "advpolicy", "action+imit", "uniform"], help='adversarial attack methods.')
     parser.add_argument('--attack-ratio', type=float, help='attack only a ratio of steps.')
     parser.add_argument('--attack-steps', type=int, help='number of PGD optimization steps.')
     parser.add_argument('--attack-eps', type=str, help='epsilon for attack. If set to "same", we will use value of robust-ppo-eps.')
