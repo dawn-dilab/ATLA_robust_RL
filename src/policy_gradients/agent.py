@@ -708,12 +708,12 @@ class Trainer(object):
                 return last_states
         elif self.params.ATTACK_METHOD == "uniform":  # 之前的random 是 uniform
             # Apply an uniform random noise.
-            # noise = torch.empty_like(last_states).uniform_(-eps, eps)
-            noise = (torch.rand_like(last_states) * 2 * eps) - eps
+            noise = torch.empty_like(last_states).uniform_(-eps, eps)
+            # noise = (torch.rand_like(last_states) * 2 * eps) - eps
             return (last_states + noise).detach()
         elif self.params.ATTACK_METHOD == "random":
             # Apply Gaussian (normal) noise.
-            noise = torch.normal(mean=0, std= eps/3.0, size=last_states.size(), device=last_states.device)
+            noise = torch.normal(mean=0, std= eps, size=last_states.size(), device=last_states.device)
             noise = torch.clamp(noise, -1 * eps, eps)
             return (last_states + noise).detach()
         elif self.params.ATTACK_METHOD == "poisson":
