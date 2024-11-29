@@ -713,7 +713,7 @@ class Trainer(object):
         elif self.params.ATTACK_METHOD == "random":
             # Apply Gaussian (normal) noise.
             noise = torch.normal(mean=0, std= eps, size=last_states.size(), device=last_states.device)
-            noise = torch.clamp(noise, -1 * eps, eps)
+            # noise = torch.clamp(noise, -1 * eps, eps)
             return (last_states + noise).detach()
         elif self.params.ATTACK_METHOD == "poisson":
             last_states_positive = torch.clamp(last_states, min=0)  # 将所有小于0的值设置为0
